@@ -14,6 +14,7 @@ import android.widget.GridView;
 
 import com.lawsonfulton.nytimessearch.Article;
 import com.lawsonfulton.nytimessearch.ArticleArrayAdapter;
+import com.lawsonfulton.nytimessearch.EndlessScrollListener;
 import com.lawsonfulton.nytimessearch.R;
 import com.loopj.android.http.AsyncHttpClient;
 import com.loopj.android.http.JsonHttpResponseHandler;
@@ -28,6 +29,11 @@ import java.util.ArrayList;
 import cz.msebera.android.httpclient.Header;
 
 public class SearchActivity extends AppCompatActivity {
+
+    static final String API_KEY = "04cf47f7c40b19b9c7d104a0ef15b72f:17:74353348";
+    static final String SEARCH_URL = "http://api.nytimes.com/svc/search/v2/articlesearch.json";
+
+    String query;
 
     EditText etQuery;
     GridView gvResults;
@@ -46,6 +52,8 @@ public class SearchActivity extends AppCompatActivity {
     }
 
     public void setupViews() {
+        query = "";
+
         etQuery = (EditText) findViewById(R.id.etQuery);
         gvResults = (GridView) findViewById(R.id.gvResults);
         btnSearch = (Button) findViewById(R.id.btnSearch);
@@ -62,6 +70,16 @@ public class SearchActivity extends AppCompatActivity {
 
                 i.putExtra("article", article);
                 startActivity(i);
+            }
+        });
+
+        gvResults.setOnScrollListener(new EndlessScrollListener() {
+            @Override
+            public boolean onLoadMore(int page, int totalItemsCount) {
+                // Triggered only when new data needs to be appended to the list
+                // Add whatever code is needed to append new items to your AdapterView
+                fetchArticles(query, page);
+                return true; // ONLY if more data is actually being loaded; false otherwise.
             }
         });
     }
@@ -89,17 +107,21 @@ public class SearchActivity extends AppCompatActivity {
     }
 
     public void onArticleSearch(View view) {
-        String query = etQuery.getText().toString();
+        adapter.clear();
+        
+        query = etQuery.getText().toString();
+        fetchArticles(query, 0);
+    }
 
+    private void fetchArticles(String query, int page) {
         AsyncHttpClient client = new AsyncHttpClient();
-        String url = "http://api.nytimes.com/svc/search/v2/articlesearch.json";
 
         RequestParams params = new RequestParams();
-        params.put("api-key", "04cf47f7c40b19b9c7d104a0ef15b72f:17:74353348");
-        params.put("page", 0);
+        params.put("api-key", API_KEY);
+        params.put("page", page);
         params.put("q", query);
 
-        client.get(url, params, new JsonHttpResponseHandler() {
+        client.get(SEARCH_URL, params, new JsonHttpResponseHandler() {
             @Override
             public void onSuccess(int statusCode, Header[] headers, JSONObject response) {
                 JSONArray articleJSONResults = null;
