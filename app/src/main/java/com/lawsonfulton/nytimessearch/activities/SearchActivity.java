@@ -2,20 +2,24 @@ package com.lawsonfulton.nytimessearch.activities;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.support.v4.app.FragmentManager;
+import android.support.v4.view.MenuItemCompat;
 import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.SearchView;
 import android.support.v7.widget.Toolbar;
+import android.util.Log;
 import android.view.Menu;
+import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.AdapterView;
-import android.widget.Button;
-import android.widget.EditText;
 import android.widget.GridView;
 
 import com.lawsonfulton.nytimessearch.Article;
 import com.lawsonfulton.nytimessearch.ArticleArrayAdapter;
 import com.lawsonfulton.nytimessearch.EndlessScrollListener;
 import com.lawsonfulton.nytimessearch.R;
+import com.lawsonfulton.nytimessearch.SettingsDialog;
 import com.loopj.android.http.AsyncHttpClient;
 import com.loopj.android.http.JsonHttpResponseHandler;
 import com.loopj.android.http.RequestParams;
@@ -33,11 +37,8 @@ public class SearchActivity extends AppCompatActivity {
     static final String API_KEY = "04cf47f7c40b19b9c7d104a0ef15b72f:17:74353348";
     static final String SEARCH_URL = "http://api.nytimes.com/svc/search/v2/articlesearch.json";
 
-    String query;
-
-    EditText etQuery;
+    String savedQuery;
     GridView gvResults;
-    Button btnSearch;
 
     ArrayList<Article> articles;
     ArticleArrayAdapter adapter;
@@ -52,11 +53,8 @@ public class SearchActivity extends AppCompatActivity {
     }
 
     public void setupViews() {
-        query = "";
-
-        etQuery = (EditText) findViewById(R.id.etQuery);
+        savedQuery = "";
         gvResults = (GridView) findViewById(R.id.gvResults);
-        btnSearch = (Button) findViewById(R.id.btnSearch);
 
         articles = new ArrayList<>();
         adapter = new ArticleArrayAdapter(this, articles);
@@ -76,41 +74,50 @@ public class SearchActivity extends AppCompatActivity {
         gvResults.setOnScrollListener(new EndlessScrollListener() {
             @Override
             public boolean onLoadMore(int page, int totalItemsCount) {
-                // Triggered only when new data needs to be appended to the list
-                // Add whatever code is needed to append new items to your AdapterView
-                fetchArticles(query, page);
-                return true; // ONLY if more data is actually being loaded; false otherwise.
+                fetchArticles(savedQuery, page);
+                return true;
             }
         });
     }
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        // Inflate the menu; this adds items to the action bar if it is present.
-        getMenuInflater().inflate(R.menu.menu_search, menu);
-        return true;
+        MenuInflater inflater = getMenuInflater();
+        inflater.inflate(R.menu.menu_search, menu);
+
+        MenuItem searchItem = menu.findItem(R.id.action_search);
+        final SearchView searchView = (SearchView) MenuItemCompat.getActionView(searchItem);
+        searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
+            @Override
+            public boolean onQueryTextSubmit(String query) {
+                newArticleSearch(query);
+                searchView.clearFocus();
+                return true;
+            }
+
+            @Override
+            public boolean onQueryTextChange(String newText) {
+                return false;
+            }
+        });
+
+        MenuItem settingsItem = menu.findItem(R.id.miSettings);
+        settingsItem.setOnMenuItemClickListener(new MenuItem.OnMenuItemClickListener() {
+            @Override
+            public boolean onMenuItemClick(MenuItem item) {
+                showSettingsDialog();
+                return true;
+            }
+        });
+
+        return super.onCreateOptionsMenu(menu);
     }
 
-    @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
-        // Handle action bar item clicks here. The action bar will
-        // automatically handle clicks on the Home/Up button, so long
-        // as you specify a parent activity in AndroidManifest.xml.
-        int id = item.getItemId();
-
-        //noinspection SimplifiableIfStatement
-        if (id == R.id.action_settings) {
-            return true;
-        }
-
-        return super.onOptionsItemSelected(item);
-    }
-
-    public void onArticleSearch(View view) {
+    public void newArticleSearch(String query) {
+        savedQuery = query;
         adapter.clear();
-        
-        query = etQuery.getText().toString();
-        fetchArticles(query, 0);
+        fetchArticles(savedQuery, 0);
+        fetchArticles(savedQuery, 1);
     }
 
     private void fetchArticles(String query, int page) {
@@ -133,6 +140,19 @@ public class SearchActivity extends AppCompatActivity {
                     e.printStackTrace();
                 }
             }
+
+            @Override
+            public void onFailure(int statusCode, Header[] headers, Throwable throwable, JSONObject errorResponse) {
+                Log.d("DEBUG", errorResponse.toString());
+                super.onFailure(statusCode, headers, throwable, errorResponse);
+            }
         });
     }
+
+    private void showSettingsDialog() {
+        FragmentManager fm = getSupportFragmentManager();
+        SettingsDialog settingsDialog = SettingsDialog.newInstance("Search Settings");
+        settingsDialog.show(fm, "settings_fragment");
+    }
+
 }

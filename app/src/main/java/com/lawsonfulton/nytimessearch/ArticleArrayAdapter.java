@@ -37,7 +37,7 @@ public class ArticleArrayAdapter extends ArrayAdapter<Article> {
 
         String thumbUrl = article.getThumbnailUrl();
         if (thumbUrl != "") {
-            Picasso.with(getContext()).load(thumbUrl).into(ivImage);
+            Picasso.with(getContext()).load(thumbUrl).fit().centerCrop().into(ivImage);
         }
 
         return convertView;
