@@ -19,6 +19,7 @@ import com.lawsonfulton.nytimessearch.Article;
 import com.lawsonfulton.nytimessearch.ArticleArrayAdapter;
 import com.lawsonfulton.nytimessearch.EndlessScrollListener;
 import com.lawsonfulton.nytimessearch.R;
+import com.lawsonfulton.nytimessearch.SearchSettings;
 import com.lawsonfulton.nytimessearch.SettingsDialog;
 import com.loopj.android.http.AsyncHttpClient;
 import com.loopj.android.http.JsonHttpResponseHandler;
@@ -32,12 +33,13 @@ import java.util.ArrayList;
 
 import cz.msebera.android.httpclient.Header;
 
-public class SearchActivity extends AppCompatActivity {
+public class SearchActivity extends AppCompatActivity implements SettingsDialog.OnCompleteListener {
 
     static final String API_KEY = "04cf47f7c40b19b9c7d104a0ef15b72f:17:74353348";
     static final String SEARCH_URL = "http://api.nytimes.com/svc/search/v2/articlesearch.json";
 
     String savedQuery;
+    SearchSettings settings;
     GridView gvResults;
 
     ArrayList<Article> articles;
@@ -50,10 +52,12 @@ public class SearchActivity extends AppCompatActivity {
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
         setupViews();
+        newArticleSearch("");
     }
 
     public void setupViews() {
         savedQuery = "";
+        settings = new SearchSettings();
         gvResults = (GridView) findViewById(R.id.gvResults);
 
         articles = new ArrayList<>();
@@ -126,7 +130,31 @@ public class SearchActivity extends AppCompatActivity {
         RequestParams params = new RequestParams();
         params.put("api-key", API_KEY);
         params.put("page", page);
-        params.put("q", query);
+
+        if (!query.isEmpty()) {
+            params.put("q", query);
+        }
+
+        String beginDate = settings.getBeginDate();
+        if (!beginDate.equals("")) {
+            params.put("begin_date", beginDate);
+        }
+
+        String order = settings.getOrder().toLowerCase();
+        if (!order.equals("relevance")) {
+            params.put("sort", order);
+        }
+
+        ArrayList<String> newsDesks = settings.getNewsDesks();
+        if (!newsDesks.isEmpty()) {
+            String newsDesksString = "";
+            for(String newsDesk : newsDesks){
+                newsDesksString += "\"" + newsDesk + "\" ";
+            }
+            newsDesksString.trim();
+            String filter = "news_desk:(" + newsDesksString + ")";
+            params.put("fq", filter);
+        }
 
         client.get(SEARCH_URL, params, new JsonHttpResponseHandler() {
             @Override
@@ -150,9 +178,19 @@ public class SearchActivity extends AppCompatActivity {
     }
 
     private void showSettingsDialog() {
+        Bundle bundle=new Bundle();
+        bundle.putSerializable("settings", settings);
+
         FragmentManager fm = getSupportFragmentManager();
         SettingsDialog settingsDialog = SettingsDialog.newInstance("Search Settings");
+        settingsDialog.setArguments(bundle);
         settingsDialog.show(fm, "settings_fragment");
+    }
+
+    @Override
+    public void onDialogComplete(SearchSettings newSettings) {
+        settings = newSettings;
+        newArticleSearch(savedQuery);
     }
 
 }
